@@ -1,0 +1,42 @@
+name: Build Windows server
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'server/**'
+      - '.github/workflows/build-server-windows.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Setup vcpkg and install dependencies
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgJsonGlob: 'server/vcpkg.json'
+          runVcpkgInstall: true
+
+      - name: Configure
+        working-directory: server
+        shell: bash
+        run: cmake -B build -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Build
+        working-directory: server
+        shell: bash
+        run: cmake --build build --config Release
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mousedroid-server-windows
+          path: server/build/bin/
