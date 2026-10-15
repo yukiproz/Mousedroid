@@ -177,6 +177,90 @@ namespace InputManager
         emit(fd, EV_KEY, MEDIAMAP.at(action), 0);
         emit(fd, EV_SYN, SYN_REPORT, 0);
     }
+
+    void Linux::send_text(const char* text, size_t length) const
+    {
+        // uinput injects raw key codes, so only ASCII text that maps to key
+        // codes can be typed; anything else is skipped. Linux key codes are
+        // positional (not alphabetical), hence the lookup table.
+        static const int LETTER_KEYCODES[26] = {
+            KEY_A, KEY_B, KEY_C, KEY_D, KEY_E, KEY_F, KEY_G,
+            KEY_H, KEY_I, KEY_J, KEY_K, KEY_L, KEY_M, KEY_N,
+            KEY_O, KEY_P, KEY_Q, KEY_R, KEY_S, KEY_T, KEY_U,
+            KEY_V, KEY_W, KEY_X, KEY_Y, KEY_Z
+        };
+
+        for (size_t i = 0; i < length; i++) {
+            unsigned char c = text[i];
+            int code = 0;
+            bool shift = false;
+
+            if (c >= 'a' && c <= 'z') {
+                code = LETTER_KEYCODES[c - 'a'];
+            } else if (c >= 'A' && c <= 'Z') {
+                code = LETTER_KEYCODES[c - 'A'];
+                shift = true;
+            } else if (c >= '1' && c <= '9') {
+                code = KEY_1 + (c - '1');
+            } else if (c == '0') {
+                code = KEY_0;
+            } else {
+                switch (c) {
+                    case ' ': code = KEY_SPACE; break;
+                    case '\n': code = KEY_ENTER; break;
+                    case '\t': code = KEY_TAB; break;
+                    case '-': code = KEY_MINUS; break;
+                    case '_': code = KEY_MINUS; shift = true; break;
+                    case '=': code = KEY_EQUAL; break;
+                    case '+': code = KEY_EQUAL; shift = true; break;
+                    case '[': code = KEY_LEFTBRACE; break;
+                    case '{': code = KEY_LEFTBRACE; shift = true; break;
+                    case ']': code = KEY_RIGHTBRACE; break;
+                    case '}': code = KEY_RIGHTBRACE; shift = true; break;
+                    case '\\': code = KEY_BACKSLASH; break;
+                    case '|': code = KEY_BACKSLASH; shift = true; break;
+                    case ';': code = KEY_SEMICOLON; break;
+                    case ':': code = KEY_SEMICOLON; shift = true; break;
+                    case '\'': code = KEY_APOSTROPHE; break;
+                    case '"': code = KEY_APOSTROPHE; shift = true; break;
+                    case '`': code = KEY_GRAVE; break;
+                    case '~': code = KEY_GRAVE; shift = true; break;
+                    case ',': code = KEY_COMMA; break;
+                    case '<': code = KEY_COMMA; shift = true; break;
+                    case '.': code = KEY_DOT; break;
+                    case '>': code = KEY_DOT; shift = true; break;
+                    case '/': code = KEY_SLASH; break;
+                    case '?': code = KEY_SLASH; shift = true; break;
+                    case '!': code = KEY_1; shift = true; break;
+                    case '@': code = KEY_2; shift = true; break;
+                    case '#': code = KEY_3; shift = true; break;
+                    case '$': code = KEY_4; shift = true; break;
+                    case '%': code = KEY_5; shift = true; break;
+                    case '^': code = KEY_6; shift = true; break;
+                    case '&': code = KEY_7; shift = true; break;
+                    case '*': code = KEY_8; shift = true; break;
+                    case '(': code = KEY_9; shift = true; break;
+                    case ')': code = KEY_0; shift = true; break;
+                    default: break;
+                }
+            }
+
+            if (code == 0) {
+                continue;
+            }
+
+            if (shift) {
+                emit(fd, EV_KEY, KEY_LEFTSHIFT, 1);
+            }
+            emit(fd, EV_KEY, code, 1);
+            emit(fd, EV_SYN, SYN_REPORT, 0);
+            emit(fd, EV_KEY, code, 0);
+            if (shift) {
+                emit(fd, EV_KEY, KEY_LEFTSHIFT, 0);
+            }
+            emit(fd, EV_SYN, SYN_REPORT, 0);
+        }
+    }
 }
 
 #endif

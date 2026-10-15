@@ -3,6 +3,8 @@
 #include "input/win32/windowsinputmanager.h"
 #include "input/win32/keymap.h"
 
+#include <vector>
+
 namespace InputManager
 {
     int MOVE_SENSITIVITY = 1;
@@ -178,6 +180,36 @@ namespace InputManager
 		inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
 
 		SendInput(2, inputs, sizeof(INPUT));
+    }
+
+    void Windows::send_text(const char* text, size_t length) const
+    {
+        // KEYEVENTF_UNICODE types UTF-16 code units directly, independently
+        // of the active keyboard layout; surrogate pairs are emitted as two
+        // events and work transparently
+        int wlen = MultiByteToWideChar(CP_UTF8, 0, text, (int)length, NULL, 0);
+        if (wlen <= 0) {
+            return;
+        }
+
+        std::vector<wchar_t> wtext(wlen);
+        MultiByteToWideChar(CP_UTF8, 0, text, (int)length, wtext.data(), wlen);
+
+        std::vector<INPUT> inputs;
+        inputs.reserve(wlen * 2);
+        for (int i = 0; i < wlen; i++) {
+            INPUT keyDown = {};
+            keyDown.type = INPUT_KEYBOARD;
+            keyDown.ki.wScan = wtext[i];
+            keyDown.ki.dwFlags = KEYEVENTF_UNICODE;
+            inputs.push_back(keyDown);
+
+            INPUT keyUp = keyDown;
+            keyUp.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+            inputs.push_back(keyUp);
+        }
+
+        SendInput((UINT)inputs.size(), inputs.data(), sizeof(INPUT));
     }
 }
 

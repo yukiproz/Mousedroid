@@ -33,6 +33,7 @@ private object RawSocketEvents {
     const val SCROLL_H: Byte = 0x08
     const val ZOOM: Byte = 0x09
     const val MEDIA: Byte = 0x0A
+    const val TEXT: Byte = 0x0B
 }
 
 private fun getMouseButtonHIDCode(button: InputEvent.MouseButton): Byte {
@@ -146,6 +147,12 @@ fun InputEvent.toHIDReport(): Array<HIDReport> {
         is InputEvent.BatteryEvent -> {
             arrayOf(BatteryReport(this.percentage))
         }
+
+        is InputEvent.TextInput -> {
+            // Bluetooth HID reports are per-key and cannot carry arbitrary
+            // text; voice typing is only supported over socket connections
+            emptyArray()
+        }
     }
 }
 
@@ -195,6 +202,41 @@ fun InputEvent.toSocketReport(): Array<ByteArray> {
 
         is InputEvent.NumpadKeyPress -> {
             socketReport(RawSocketEvents.KEYPRESS, this.key, 0x00)
+        }
+
+        is InputEvent.TextInput -> {
+            // Frame: [TEXT][length_hi][length_lo][UTF-8 payload].
+            // The server reads at most 255 bytes per packet, so longer text
+            // is split into chunks (on UTF-8 character boundaries).
+            val bytes = this.text.toByteArray(Charsets.UTF_8)
+            val chunks = mutableListOf<ByteArray>()
+            val maxChunk = 200
+            var offset = 0
+            while (offset < bytes.size) {
+                var end = minOf(offset + maxChunk, bytes.size)
+                // Back off to a UTF-8 character boundary: skip continuation
+                // bytes, then exclude a trailing split lead byte as well
+                while (end > offset && bytes[end - 1] and 0xC0.toByte() == 0x80.toByte()) {
+                    end--
+                }
+                if (end > offset && bytes[end - 1] >= 0xC0.toByte()) {
+                    end--
+                }
+                if (end <= offset) {
+                    // Unreachable for valid UTF-8 (a character is at most
+                    // 4 bytes); guards against an infinite loop
+                    end = offset + 1
+                }
+                val chunk = bytes.copyOfRange(offset, end)
+                val packet = ByteArray(3 + chunk.size)
+                packet[0] = RawSocketEvents.TEXT
+                packet[1] = (chunk.size shr 8).toByte()
+                packet[2] = chunk.size.toByte()
+                chunk.copyInto(packet, 3)
+                chunks.add(packet)
+                offset = end
+            }
+            chunks.toTypedArray()
         }
 
         is InputEvent.MediaEvent -> {

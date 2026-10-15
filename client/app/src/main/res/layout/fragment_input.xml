@@ -27,7 +27,18 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:tint="@color/white" />
 
-            <EditText
+            <ImageButton
+                android:id="@+id/btnVoiceTyping"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_baseline_mic_24"
+                android:contentDescription="@string/voiceTyping"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="@color/white" />
+
+            <com.darusc.mousedroid.mkinput.VoiceTypingEditText
                 android:id="@+id/hiddenInput"
                 android:layout_width="1dp"
                 android:layout_height="1dp"
