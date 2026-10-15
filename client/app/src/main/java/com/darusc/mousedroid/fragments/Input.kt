@@ -4,6 +4,7 @@ import android.content.Context
 import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.os.Bundle
+import android.text.InputType
 import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
@@ -243,6 +244,13 @@ class Input: Fragment() {
             // Drop the "//" sentinel the text watcher keeps, so a fallback
             // finishComposingText() can never pick it up as dictated text
             setText("")
+            // Gboard refuses voice input on password-variation fields
+            // ("Voice input not supported here"), so use a plain text field
+            // for dictation. The regular keyboard path keeps the password
+            // variation (restored in stopVoiceTyping), unchanged from v1.5.
+            inputType = InputType.TYPE_CLASS_TEXT or
+                    InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                    InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             interceptCommits = true
             requestFocus()
         }
@@ -258,6 +266,11 @@ class Input: Fragment() {
         isVoiceTyping = false
         binding.hiddenInput.apply {
             interceptCommits = false
+            // Restore the v1.5 input type for the regular keyboard path
+            inputType = InputType.TYPE_CLASS_TEXT or
+                    InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or
+                    InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                    InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             text.clear()
             clearFocus()
         }

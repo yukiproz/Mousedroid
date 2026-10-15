@@ -32,8 +32,18 @@ void SettingsManager::LoadConfigs()
 
     fin.close();
 
-    InputManager::MOVE_SENSITIVITY = std::atoi(settings["MOVE_SENSITIVITY"].c_str());
-    InputManager::SCROLL_SENSITIVITY = std::atoi(settings["SCROLL_SENSITIVITY"].c_str());
+    // Don't clobber the built-in defaults when config.ini is missing or a key
+    // is absent: atoi("") silently yields 0, which e.g. freezes all touchpad
+    // movement (move() scales deltas by MOVE_SENSITIVITY / 10.0) while clicks
+    // keep working.
+    auto moveIt = settings.find("MOVE_SENSITIVITY");
+    if (moveIt != settings.end() && !moveIt->second.empty()) {
+        InputManager::MOVE_SENSITIVITY = std::atoi(moveIt->second.c_str());
+    }
+    auto scrollIt = settings.find("SCROLL_SENSITIVITY");
+    if (scrollIt != settings.end() && !scrollIt->second.empty()) {
+        InputManager::SCROLL_SENSITIVITY = std::atoi(scrollIt->second.c_str());
+    }
 }
 
 void SettingsManager::SaveConfigs()
