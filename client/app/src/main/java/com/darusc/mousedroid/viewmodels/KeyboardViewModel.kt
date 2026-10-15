@@ -50,4 +50,12 @@ class KeyboardViewModel : BaseViewModel<KeyboardViewModel.State, KeyboardViewMod
             }
         }
     }
+
+    /**
+     * Send a whole dictated text to the host to be typed verbatim.
+     * Only supported over socket connections (WIFI/USB).
+     */
+    fun sendText(text: String) {
+        connectionManager.send(InputEvent.TextInput(text))
+    }
 }

@@ -28,6 +28,7 @@ namespace InputManager
             virtual void send_key(uint8_t keycode, uint8_t modifier) const override;
             virtual void zoom(int scale) const override;
             virtual void media(uint8_t action) const override;
+            virtual void send_text(const char* text, size_t length) const override;
     };
 }
 

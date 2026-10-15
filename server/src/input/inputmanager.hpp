@@ -29,6 +29,7 @@ namespace InputManager
     const char SCROLL_H = 0x08;
     const char ZOOM = 0x09;
     const char MEDIA = 0x0A;
+    const char TEXT = 0x0B;
 
     extern int MOVE_SENSITIVITY;
     extern int SCROLL_SENSITIVITY;
@@ -83,6 +84,19 @@ namespace InputManager
                     case InputManager::ZOOM:
                         zoom(bytes[1]);
                         break;
+
+                    case InputManager::TEXT: {
+                        // Variable-length payload: [TEXT][length_hi][length_lo][UTF-8...]
+                        if (size < 3) {
+                            break;
+                        }
+                        size_t length = ((uint8_t)bytes[1] << 8) | (uint8_t)bytes[2];
+                        if (length > size - 3) {
+                            length = size - 3;
+                        }
+                        send_text(bytes + 3, length);
+                        break;
+                    }
                 }
             }
             
@@ -97,5 +111,6 @@ namespace InputManager
             virtual void send_key(uint8_t keycode, uint8_t modifier) const = 0;
             virtual void zoom(int scale) const = 0;
             virtual void media(uint8_t action) const = 0;
+            virtual void send_text(const char* text, size_t length) const = 0;
     };
 }

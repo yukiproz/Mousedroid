@@ -41,6 +41,9 @@ class Input: Fragment() {
     private val connectionViewModel: ConnectionViewModel by activityViewModels()
     private val keyboardViewModel: KeyboardViewModel by activityViewModels()
 
+    private lateinit var keyboardInputWatcher: KeyboardInputWatcher
+    private var isVoiceTyping = false
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -58,20 +61,36 @@ class Input: Fragment() {
             replaceChildFragment(Touchpad())
         }
 
+        keyboardInputWatcher = KeyboardInputWatcher(binding.hiddenInput) { bytes ->
+            keyboardViewModel.handleKeypress(bytes)
+        }
         binding.hiddenInput.apply {
-            addTextChangedListener(KeyboardInputWatcher(this) { bytes ->
-                keyboardViewModel.handleKeypress(bytes)
-            })
+            addTextChangedListener(keyboardInputWatcher)
             // Don't close the keyboard when pressing enter
             // setOnEditorActionListener { _, _, _ -> true }
+
+            onTextCommitted = { text ->
+                keyboardViewModel.sendText(text)
+                // Tear down the IME outside of the IME callback
+                post { stopVoiceTyping() }
+            }
+        }
+
+        binding.btnVoiceTyping.setOnClickListener {
+            startVoiceTyping()
         }
 
         // Remove the focus from the hidden text input and clear its text
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val isKeyboardVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
             if(!isKeyboardVisible && binding.hiddenInput.hasFocus()) {
-                binding.hiddenInput.clearFocus()
-                binding.hiddenInput.text.clear()
+                if (isVoiceTyping) {
+                    // User dismissed the keyboard without dictating anything
+                    stopVoiceTyping()
+                } else {
+                    binding.hiddenInput.clearFocus()
+                    binding.hiddenInput.text.clear()
+                }
             }
             insets
         }
@@ -211,6 +230,39 @@ class Input: Fragment() {
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(view?.windowToken, 0)
         view?.clearFocus()
+    }
+
+    /**
+     * Focus the hidden input for voice typing: the system keyboard appears and
+     * the user can dictate; committed text is sent to the host automatically.
+     */
+    private fun startVoiceTyping() {
+        isVoiceTyping = true
+        keyboardInputWatcher.enabled = false
+        binding.hiddenInput.apply {
+            // Drop the "//" sentinel the text watcher keeps, so a fallback
+            // finishComposingText() can never pick it up as dictated text
+            setText("")
+            interceptCommits = true
+            requestFocus()
+        }
+
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        // Rebind the IME so it picks up the commit-intercepting input connection
+        // (in case it was already bound, e.g. from the keyboard drawer mode)
+        imm.restartInput(binding.hiddenInput)
+        imm.showSoftInput(binding.hiddenInput, InputMethodManager.SHOW_FORCED)
+    }
+
+    private fun stopVoiceTyping() {
+        isVoiceTyping = false
+        binding.hiddenInput.apply {
+            interceptCommits = false
+            text.clear()
+            clearFocus()
+        }
+        keyboardInputWatcher.enabled = true
+        closeSoftKeyboard()
     }
 
     override fun onDestroy() {

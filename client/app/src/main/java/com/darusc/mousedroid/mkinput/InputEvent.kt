@@ -31,6 +31,12 @@ sealed class InputEvent {
     data class KeyPress(val keyList: List<KeyboardLayout.Key>) : InputEvent()
     data class NumpadKeyPress(val key: Byte): InputEvent()
 
+    /**
+     * A chunk of dictated/typed text to be typed verbatim on the host.
+     * Only supported over socket connections (WIFI/USB); ignored on Bluetooth.
+     */
+    data class TextInput(val text: String) : InputEvent()
+
     data class MediaEvent(val action: MediaAction): InputEvent()
 
     data class BatteryEvent(val percentage: Int): InputEvent()

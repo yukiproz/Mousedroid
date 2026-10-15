@@ -13,6 +13,12 @@ class KeyboardInputWatcher(
 
     private var ignoreChange = false
 
+    /**
+     * When false, text changes are ignored entirely (used while voice typing
+     * so intermediate partials are not sent as keypresses).
+     */
+    var enabled = true
+
     init {
         reset()
     }
@@ -20,7 +26,7 @@ class KeyboardInputWatcher(
     override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) { }
 
     override fun onTextChanged(text: CharSequence, start: Int, lengthBefore: Int, lengthAfter: Int) {
-        if(!ignoreChange) {
+        if(!ignoreChange && enabled) {
             if(lengthAfter < lengthBefore){
                 sendInputCallback(charArrayOf(127.toChar())) // DEL
                 if(start == 1 && lengthAfter == 0){
